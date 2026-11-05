@@ -45,10 +45,7 @@ public class ProductoService {
 
     public Producto crear(Producto producto) {
         validarProducto(producto, true);
-        if (productoRepository.existsById(producto.getId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Ya existe un producto con ese ID");
-        }
+        validarIdDisponible(producto.getId());
         producto.setCategoria(obtenerCategoria(producto.getCategoria()));
         return productoRepository.save(producto);
     }
@@ -76,6 +73,10 @@ public class ProductoService {
     }
 
     public BigDecimal obtenerPrecioFinal(Producto producto) {
+        if (producto == null || producto.getPrecio() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El producto y su precio son obligatorios");
+        }
         if (Boolean.TRUE.equals(producto.getOferta())
                 && producto.getPrecioOferta() != null) {
             return producto.getPrecioOferta();
@@ -84,7 +85,7 @@ public class ProductoService {
     }
 
     private Categoria obtenerCategoria(Categoria categoria) {
-        if (categoria == null || categoria.getId() == null) {
+        if (categoria == null || !esIdCategoriaValido(categoria.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "La categoria es obligatoria");
         }
@@ -94,7 +95,7 @@ public class ProductoService {
     }
 
     private void verificarCategoria(Long categoriaId) {
-        if (categoriaId == null) {
+        if (!esIdCategoriaValido(categoriaId)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "El ID de la categoria es obligatorio");
         }
@@ -138,13 +139,7 @@ public class ProductoService {
                     "El precio debe tener hasta 10 dígitos y 2 decimales");
         }
         validarStock(producto.getStock());
-        if (Boolean.TRUE.equals(producto.getOferta())
-                && (producto.getPrecioOferta() == null
-                || producto.getPrecioOferta().signum() < 0)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Una oferta debe tener un precio válido");
-        }
+        validarPrecioOferta(producto);
     }
 
     private void validarId(String id) {
@@ -159,6 +154,13 @@ public class ProductoService {
         }
     }
 
+    private void validarIdDisponible(String id) {
+        if (productoRepository.existsById(id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Ya existe un producto con ese ID");
+        }
+    }
+
     private void validarStock(Integer stock) {
         if (stock == null) {
             throw new ResponseStatusException(
@@ -168,5 +170,37 @@ public class ProductoService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "El stock no puede ser negativo");
         }
+    }
+
+    private void validarPrecioOferta(Producto producto) {
+        if (!Boolean.TRUE.equals(producto.getOferta())) {
+            return;
+        }
+        if (producto.getPrecioOferta() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El precio de oferta es obligatorio cuando el producto está en oferta");
+        }
+        if (producto.getPrecioOferta().signum() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El precio de oferta no puede ser negativo");
+        }
+        if (producto.getPrecioOferta().compareTo(producto.getPrecio()) >= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El precio de oferta debe ser menor que el precio normal");
+        }
+        if (producto.getPrecioOferta().scale() > 2
+                || producto.getPrecioOferta().precision()
+                - producto.getPrecioOferta().scale() > 8) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El precio de oferta debe tener hasta 10 digitos y 2 decimales");
+        }
+    }
+
+    private boolean esIdCategoriaValido(Long categoriaId) {
+        return categoriaId != null && categoriaId > 0;
     }
 }
