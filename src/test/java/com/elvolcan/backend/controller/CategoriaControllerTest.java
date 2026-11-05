@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +48,18 @@ class CategoriaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].nombre").value("Cilindros"));
+    }
+
+    @Test
+    void deberiaObtenerCategoriaPorId() throws Exception {
+        when(categoriaService.obtenerPorId(1L)).thenReturn(categoria());
+
+        mockMvc.perform(get("/api/v1/categorias/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.nombre").value("Cilindros"));
+
+        verify(categoriaService).obtenerPorId(1L);
     }
 
     @Test
@@ -90,6 +104,15 @@ class CategoriaControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(categoriaService).eliminar(1L);
+    }
+
+    @Test
+    void deberiaResponder404CuandoCategoriaNoExiste() throws Exception {
+        when(categoriaService.obtenerPorId(99L)).thenThrow(
+                new ResponseStatusException(NOT_FOUND, "Categoría no encontrada"));
+
+        mockMvc.perform(get("/api/v1/categorias/99"))
+                .andExpect(status().isNotFound());
     }
 
     private Categoria categoria() {

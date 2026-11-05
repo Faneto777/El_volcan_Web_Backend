@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -19,6 +20,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -60,6 +64,43 @@ class ProductoControllerTest {
                 .andExpect(jsonPath("$[0].id").value("GLP-5"));
 
         verify(productoService).obtenerPorCategoria(1L);
+    }
+
+    @Test
+    void deberiaBuscarProductosPorCategoriaConParametro() throws Exception {
+        when(productoService.obtenerPorCategoria(1L)).thenReturn(List.of(producto()));
+
+        mockMvc.perform(get("/api/v1/productos").param("categoriaId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("GLP-5"));
+
+        verify(productoService).obtenerPorCategoria(1L);
+    }
+
+    @Test
+    void deberiaObtenerProductoPorId() throws Exception {
+        when(productoService.obtenerPorId("GLP-5")).thenReturn(producto());
+
+        mockMvc.perform(get("/api/v1/productos/GLP-5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("GLP-5"));
+
+        verify(productoService).obtenerPorId("GLP-5");
+    }
+
+    @Test
+    void deberiaListarProductosEnOferta() throws Exception {
+        Producto producto = producto();
+        producto.setOferta(true);
+        producto.setPrecioOferta(new BigDecimal("8500"));
+        when(productoService.obtenerOfertas()).thenReturn(List.of(producto));
+
+        mockMvc.perform(get("/api/v1/productos/ofertas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].oferta").value(true))
+                .andExpect(jsonPath("$[0].precioOferta").value(8500));
+
+        verify(productoService).obtenerOfertas();
     }
 
     @Test
@@ -109,6 +150,53 @@ class ProductoControllerTest {
                 .andExpect(content().string(""));
 
         verify(productoService).eliminar("GLP-5");
+    }
+
+    @Test
+    void deberiaResponder404CuandoProductoNoExiste() throws Exception {
+        when(productoService.obtenerPorId("NO-EXISTE")).thenThrow(
+                new ResponseStatusException(NOT_FOUND, "Producto no encontrado"));
+
+        mockMvc.perform(get("/api/v1/productos/NO-EXISTE"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deberiaResponder400CuandoElServicioRechazaElProducto() throws Exception {
+        when(productoService.crear(any(Producto.class))).thenThrow(
+                new ResponseStatusException(BAD_REQUEST, "Stock inválido"));
+
+        mockMvc.perform(post("/api/v1/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "id": "GLP-5",
+                                  "nombre": "Gas 5 kg",
+                                  "precio": 10000,
+                                  "stock": -1,
+                                  "categoria": {"id": 1}
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deberiaResponder409CuandoElIdEstaDuplicado() throws Exception {
+        when(productoService.crear(any(Producto.class))).thenThrow(
+                new ResponseStatusException(CONFLICT, "Ya existe un producto con ese ID"));
+
+        mockMvc.perform(post("/api/v1/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "id": "GLP-5",
+                                  "nombre": "Gas 5 kg",
+                                  "precio": 10000,
+                                  "stock": 5,
+                                  "categoria": {"id": 1}
+                                }
+                                """))
+                .andExpect(status().isConflict());
     }
 
     private Producto producto() {
