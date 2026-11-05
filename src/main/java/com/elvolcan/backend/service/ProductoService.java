@@ -28,6 +28,7 @@ public class ProductoService {
     }
 
     public Producto obtenerPorId(String id) {
+        validarId(id);
         return productoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Producto no encontrado"));
@@ -53,6 +54,7 @@ public class ProductoService {
     }
 
     public Producto actualizar(String id, Producto datosActualizados) {
+        validarId(id);
         validarProducto(datosActualizados, false);
 
         Producto producto = obtenerPorId(id);
@@ -68,6 +70,7 @@ public class ProductoService {
     }
 
     public void eliminar(String id) {
+        validarId(id);
         Producto producto = obtenerPorId(id);
         productoRepository.delete(producto);
     }
@@ -83,47 +86,87 @@ public class ProductoService {
     private Categoria obtenerCategoria(Categoria categoria) {
         if (categoria == null || categoria.getId() == null) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "La categoría es obligatoria");
+                    HttpStatus.BAD_REQUEST, "La categoria es obligatoria");
         }
         return categoriaRepository.findById(categoria.getId())
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "La categoría no existe"));
+                        HttpStatus.BAD_REQUEST, "La categoria no existe"));
     }
 
     private void verificarCategoria(Long categoriaId) {
         if (categoriaId == null) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "El ID de la categoría es obligatorio");
+                    HttpStatus.BAD_REQUEST, "El ID de la categoria es obligatorio");
         }
         if (!categoriaRepository.existsById(categoriaId)) {
             throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "Categoría no encontrada");
+                    HttpStatus.NOT_FOUND, "Categoria no encontrada");
         }
     }
 
     private void validarProducto(Producto producto, boolean requiereId) {
-        if (producto == null
-                || producto.getNombre() == null || producto.getNombre().isBlank()
-                || producto.getPrecio() == null || producto.getStock() == null
-                || producto.getStock() < 0) {
+        if (producto == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El producto es obligatorio");
+        }
+
+        if (requiereId) {
+            validarId(producto.getId());
+        }
+
+        if (producto.getNombre() == null || producto.getNombre().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El nombre del producto es obligatorio");
+        }
+        if (producto.getNombre().trim().length() > 100) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Nombre, precio y stock válido son obligatorios");
+                    "El nombre del producto no puede superar los 100 caracteres");
         }
-        if (requiereId && (producto.getId() == null || producto.getId().isBlank())) {
+        if (producto.getPrecio() == null) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "El ID del producto es obligatorio");
+                    HttpStatus.BAD_REQUEST, "El precio del producto es obligatorio");
         }
         if (producto.getPrecio().signum() < 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "El precio no puede ser negativo");
         }
+        if (producto.getPrecio().scale() > 2
+                || producto.getPrecio().precision() - producto.getPrecio().scale() > 8) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El precio debe tener hasta 10 dígitos y 2 decimales");
+        }
+        validarStock(producto.getStock());
         if (Boolean.TRUE.equals(producto.getOferta())
                 && (producto.getPrecioOferta() == null
                 || producto.getPrecioOferta().signum() < 0)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Una oferta debe tener un precio válido");
+        }
+    }
+
+    private void validarId(String id) {
+        if (id == null || id.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El ID del producto es obligatorio");
+        }
+        if (id.trim().length() > 20) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El ID del producto no puede superar los 20 caracteres");
+        }
+    }
+
+    private void validarStock(Integer stock) {
+        if (stock == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El stock del producto es obligatorio");
+        }
+        if (stock < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El stock no puede ser negativo");
         }
     }
 }

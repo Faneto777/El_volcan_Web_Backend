@@ -30,6 +30,13 @@ public class ProductoController {
         return productoService.obtenerTodos();
     }
 
+    @GetMapping("/categoria/{categoriaId}")
+    @Operation(summary = "Buscar productos por categoria",
+            description = "Devuelve los productos asociados a una categoría")
+    public List<Producto> listarPorCategoria(@PathVariable Long categoriaId) {
+        return productoService.obtenerPorCategoria(categoriaId);
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Obtener un producto por ID")
     public Producto obtenerPorId(@PathVariable String id) {
