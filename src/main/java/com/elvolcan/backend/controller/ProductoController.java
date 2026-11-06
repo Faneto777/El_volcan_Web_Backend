@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -50,6 +51,7 @@ public class ProductoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Crear un producto")
     public ResponseEntity<Producto> crear(@RequestBody Producto producto) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -57,6 +59,7 @@ public class ProductoController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar un producto")
     public Producto actualizar(@PathVariable String id,
                                @RequestBody Producto producto) {
@@ -64,6 +67,7 @@ public class ProductoController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Eliminar un producto")
     public ResponseEntity<Void> eliminar(@PathVariable String id) {
         productoService.eliminar(id);
