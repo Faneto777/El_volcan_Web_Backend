@@ -3,6 +3,7 @@ package com.elvolcan.backend.service;
 import com.elvolcan.backend.dto.CrearBoletaRequest;
 import com.elvolcan.backend.dto.ItemCarritoRequest;
 import com.elvolcan.backend.model.Boleta;
+import com.elvolcan.backend.model.DetalleBoleta;
 import com.elvolcan.backend.model.Producto;
 import com.elvolcan.backend.model.Usuario;
 import com.elvolcan.backend.repository.BoletaRepository;
@@ -134,5 +135,74 @@ class BoletaServiceTest {
         assertEquals(List.of(boleta), resultado);
         verify(boletaRepository)
                 .findAllByUsuarioEmailOrderByFechaDesc("cliente@elvolcan.cl");
+    }
+
+    @Test
+    void deberiaAnularBoletaYDevolverStock() {
+        Producto producto = new Producto();
+        producto.setId("CL001");
+        producto.setStock(3);
+        DetalleBoleta detalle = new DetalleBoleta();
+        detalle.setProducto(producto);
+        detalle.setCantidad(2);
+        Boleta boleta = new Boleta();
+        boleta.setId(10L);
+        boleta.getDetalles().add(detalle);
+
+        when(boletaRepository.findById(10L)).thenReturn(Optional.of(boleta));
+        when(productoRepository.buscarPorIdConBloqueo("CL001")).thenReturn(Optional.of(producto));
+        when(boletaRepository.save(any(Boleta.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Boleta resultado = boletaService.anular(10L);
+
+        assertEquals("ANULADA", resultado.getEstado());
+        assertEquals(5, producto.getStock());
+        verify(boletaRepository).save(boleta);
+    }
+
+    @Test
+    void deberiaRechazarAnularBoletaYaAnulada() {
+        Boleta boleta = new Boleta();
+        boleta.setId(10L);
+        boleta.setEstado("ANULADA");
+        when(boletaRepository.findById(10L)).thenReturn(Optional.of(boleta));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> boletaService.anular(10L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(productoRepository, never()).buscarPorIdConBloqueo(any());
+        verify(boletaRepository, never()).save(any());
+    }
+
+    @Test
+    void deberiaImpedirAClienteVerBoletaAjena() {
+        Usuario dueno = new Usuario();
+        dueno.setEmail("otro@elvolcan.cl");
+        Boleta boleta = new Boleta();
+        boleta.setId(10L);
+        boleta.setUsuario(dueno);
+        when(boletaRepository.findById(10L)).thenReturn(Optional.of(boleta));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> boletaService.obtenerPorId(10L, "cliente@elvolcan.cl", false));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void deberiaPermitirAVendedorVerCualquierBoleta() {
+        Usuario dueno = new Usuario();
+        dueno.setEmail("otro@elvolcan.cl");
+        Boleta boleta = new Boleta();
+        boleta.setId(10L);
+        boleta.setUsuario(dueno);
+        when(boletaRepository.findById(10L)).thenReturn(Optional.of(boleta));
+
+        Boleta resultado = boletaService.obtenerPorId(10L, "vendedor@elvolcan.cl", true);
+
+        assertEquals(boleta, resultado);
     }
 }

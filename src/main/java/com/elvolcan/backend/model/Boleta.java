@@ -24,6 +24,9 @@ public class Boleta {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
 
+    @Column(nullable = false, length = 20)
+    private String estado = "VIGENTE";
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;

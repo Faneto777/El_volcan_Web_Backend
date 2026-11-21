@@ -116,4 +116,40 @@ public class BoletaService {
         }
         return boletaRepository.findAllByUsuarioEmailOrderByFechaDesc(email);
     }
+
+    @Transactional(readOnly = true)
+    public Boleta obtenerPorId(Long id, String email, boolean esStaff) {
+        Boleta boleta = boletaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Boleta no encontrada"));
+
+        if (!esStaff && !boleta.getUsuario().getEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "No puedes consultar boletas de otros usuarios");
+        }
+        return boleta;
+    }
+
+    @Transactional
+    public Boleta anular(Long id) {
+        Boleta boleta = boletaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Boleta no encontrada"));
+
+        if ("ANULADA".equals(boleta.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La boleta ya está anulada");
+        }
+
+        for (DetalleBoleta detalle : boleta.getDetalles()) {
+            String productoId = detalle.getProducto().getId();
+            Producto producto = productoRepository.buscarPorIdConBloqueo(productoId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Producto no encontrado: " + productoId));
+            producto.setStock(producto.getStock() + detalle.getCantidad());
+        }
+
+        boleta.setEstado("ANULADA");
+        return boletaRepository.save(boleta);
+    }
 }
