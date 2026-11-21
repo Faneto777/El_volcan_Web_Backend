@@ -39,4 +39,10 @@ public class BoletaController {
     public List<Boleta> obtenerHistorial() {
         return boletaService.obtenerHistorial();
     }
+
+    @GetMapping("/mis-compras")
+    @Operation(summary = "Consultar mis compras", description = "Lista las boletas del usuario autenticado")
+    public List<Boleta> obtenerMisCompras(Principal principal) {
+        return boletaService.obtenerMisCompras(principal.getName());
+    }
 }

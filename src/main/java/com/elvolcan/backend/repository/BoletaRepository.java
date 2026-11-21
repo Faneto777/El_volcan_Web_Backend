@@ -10,4 +10,6 @@ import java.util.List;
 public interface BoletaRepository extends JpaRepository<Boleta, Long> {
 
     List<Boleta> findAllByOrderByFechaDesc();
+
+    List<Boleta> findAllByUsuarioEmailOrderByFechaDesc(String email);
 }

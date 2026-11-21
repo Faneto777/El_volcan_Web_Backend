@@ -46,10 +46,6 @@ public class BoletaService {
                     "El carrito no puede estar vacío");
         }
 
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Usuario no encontrado"));
-
         List<ItemCarritoRequest> items = new ArrayList<>(request.items());
         for (ItemCarritoRequest item : items) {
             if (item == null || item.productoId() == null || item.productoId().isBlank()
@@ -58,8 +54,20 @@ public class BoletaService {
                         "Cada producto debe tener un ID y una cantidad válida");
             }
         }
-        items.sort((a, b) -> a.productoId().compareTo(b.productoId()));
+
         Set<String> productosIncluidos = new HashSet<>();
+        for (ItemCarritoRequest item : items) {
+            if (!productosIncluidos.add(item.productoId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No repitas un producto en el carrito");
+            }
+        }
+
+        items.sort((a, b) -> a.productoId().compareTo(b.productoId()));
+
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
         Boleta boleta = new Boleta();
         boleta.setUsuario(usuario);
@@ -67,11 +75,6 @@ public class BoletaService {
         boleta.setTotal(BigDecimal.ZERO);
 
         for (ItemCarritoRequest item : items) {
-            if (!productosIncluidos.add(item.productoId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "No repitas un producto en el carrito");
-            }
-
             Producto producto = productoRepository.buscarPorIdConBloqueo(item.productoId())
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Producto no encontrado: " + item.productoId()));
@@ -103,5 +106,14 @@ public class BoletaService {
     @Transactional(readOnly = true)
     public List<Boleta> obtenerHistorial() {
         return boletaRepository.findAllByOrderByFechaDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Boleta> obtenerMisCompras(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Debes iniciar sesión");
+        }
+        return boletaRepository.findAllByUsuarioEmailOrderByFechaDesc(email);
     }
 }
